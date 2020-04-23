@@ -23,6 +23,8 @@ import textwrap
 
 from simulator.maths import Point, Matrix
 
+SOLVED_CUBE_STR = "OOOOOOOOOYYYWWWGGGBBBYYYWWWGGGBBBYYYWWWGGGBBBRRRRRRRRR"
+
 RIGHT = X_AXIS = Point(1, 0, 0)
 LEFT           = Point(-1, 0, 0)
 UP    = Y_AXIS = Point(0, 1, 0)
@@ -145,7 +147,7 @@ class Cube:
         assert all(p.type == EDGE for p in self.edges)
         assert all(p.type == CORNER for p in self.corners)
 
-    def __init__(self, cube_str):
+    def __init__(self, cube_str=SOLVED_CUBE_STR):
         """
         cube_str looks like:
                 UUU                       0  1  2
