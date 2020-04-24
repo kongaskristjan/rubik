@@ -10,8 +10,7 @@ device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 maxScrambles = 20
 
 def main():
-    tfms = Compose([data.CubeToIndices(), data.IndicesToOneHot()])
-    ds = data.RubikDataset(60000, maxScrambles, tfms=tfms)
+    ds = data.RubikDataset(60000, maxScrambles)
     dl = DataLoader(ds, batch_size=64, num_workers=16)
 
     net = models.DeepCube().to(device)
