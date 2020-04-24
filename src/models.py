@@ -13,10 +13,10 @@ class DeepCube(nn.Module):
         self.linear4 = nn.Linear(512, 6 * 3)
 
     def forward(self, x):
-        x = x.view(x.shape[0], -1)
+        x = x.reshape(x.shape[0], -1)
         x = F.relu(self.linear1(x), inplace=True)
         x = F.relu(self.linear2(x), inplace=True)
         x = F.relu(self.linear3(x), inplace=True)
         x = self.linear4(x)
-        x = x.view(x.shape[0], 6, 3)
+        x = x.reshape(x.shape[0], 6, 3)
         return x

@@ -6,6 +6,32 @@ from torch.utils.data import Dataset, DataLoader
 
 ops = 'LRUDFB'
 
+class RubikEnv:
+    def __init__(self, scrambles=1000):
+        self.cube = Cube()
+        seq = ''
+        for _ in range(scrambles):
+            op = random.choice(ops)
+            amount = random.choice(['', '2', 'i']) # normal op, 2x op, inverse op
+            if amount == '2':
+                seq += f' {op} {op}'
+            else:
+                seq += f' {op}{amount}'
+        self.cube.sequence(seq)
+
+    def step(self, action):
+        op = _indicesToOp(action)
+        self.cube.sequence(op)
+
+    def getState(self):
+        obs = str(self.cube)
+        obs = _cubeToIndices(obs)
+        obs = _indicesToOneHot(obs)
+
+        done = self.cube.is_solved()
+        return obs, done
+
+
 class RubikDataset(Dataset):
     def __init__(self, size, maxIters):
         super(RubikDataset, self).__init__()
@@ -45,6 +71,17 @@ def _opToIndices(op):
     if len(op) == 2 and op[1] == 'i': amountIdx = 2
     y = torch.tensor([opIdx, amountIdx], dtype=torch.long)
     return y
+
+
+def _indicesToOp(indices):
+    op, amount = indices
+    op, amount = op.item(), amount.item()
+    op = ops[op]
+
+    assert amount in (0, 1, 2)
+    if amount == 0: return op
+    if amount == 1: return f'{op} {op}'
+    if amount == 2: return f'{op}i'
 
 
 def _cubeToIndices(cube):

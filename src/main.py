@@ -36,9 +36,32 @@ def train(net, dl):
             perClass.accumulate(scrambles, loss, acc)
 
         print()
+        print()
+        print()
         print(f'Epoch {e}/{epochs}:')
         print(f'acc={100*stats.getAcc():.2f}%, loss={stats.getLoss():.3f}')
         print(f'acc= {perClass.accStr()}')
+        print()
+        for scrambles in range(1, 11):
+            testSolve(net, scrambles=scrambles)
+
+
+def testSolve(net, scrambles=100):
+    env = data.RubikEnv(scrambles=scrambles)
+    for i in range(101):
+        obs, done = env.getState()
+        if done:
+            print(f'Test with {scrambles} scrambles solved in {i} steps')
+            return
+
+        obs = obs.view(1, *obs.shape).to(device) # batch and GPU
+        action = net(obs)
+        action = action.to('cpu').view(*action.shape[1:]) # CPU and debatch
+
+        action = torch.argmax(action.view(-1))
+        action = torch.tensor([action.item() // 3, action.item() % 3], dtype=torch.long)
+        env.step(action)
+    print(f'did not solve {scrambles} scrambles')
 
 
 if __name__ == '__main__':
