@@ -15,9 +15,9 @@ class RubikDataset(Dataset):
         self.tfms = tfms
 
     def __getitem__(self, _):
-        xy = self._getCube()
-        xy = self.tfms(xy)
-        return xy
+        x, y, scrambles = self._getCube()
+        x, y = self.tfms((x, y))
+        return x, y, scrambles
 
     def __len__(self):
         return self.size
@@ -25,7 +25,8 @@ class RubikDataset(Dataset):
     def _getCube(self):
         cube = Cube()
         seq = ''
-        for _ in range(random.randint(1, self.maxIters)):
+        scrambles = random.randint(1, self.maxIters)
+        for _ in range(scrambles):
             op = random.choice(ops)
             amount = random.choice(['', '2', 'i']) # normal op, 2x op, inverse op
             if amount == '2':
@@ -34,7 +35,7 @@ class RubikDataset(Dataset):
                 seq += f' {op}{amount}'
         cube.sequence(seq)
         reverseAmount = {'': 'i', '2': '2', 'i': ''}[amount]
-        return str(cube), f'{op}{reverseAmount}'
+        return str(cube), f'{op}{reverseAmount}', scrambles
 
 
 class CubeToIndices:

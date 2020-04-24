@@ -7,10 +7,11 @@ import data, models, utils
 from torchvision.transforms import Compose
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+maxScrambles = 20
 
 def main():
     tfms = Compose([data.CubeToIndices(), data.IndicesToOneHot()])
-    ds = data.RubikDataset(60000, 5, tfms=tfms)
+    ds = data.RubikDataset(60000, maxScrambles, tfms=tfms)
     dl = DataLoader(ds, batch_size=64, num_workers=16)
 
     net = models.DeepCube().to(device)
@@ -18,20 +19,27 @@ def main():
 
 def train(net, dl):
     optim = torch.optim.Adam(net.parameters())
-    criterion = utils.CubeLoss('sum').to(device)
+    criterion = utils.CubeLoss('none').to(device)
 
     epochs = 10
     for e in range(1, epochs + 1):
         stats = utils.Stats()
-        for input, target in dl:
+        perClass = utils.PerClassStats(maxScrambles)
+
+        for input, target, scrambles in dl:
             optim.zero_grad()
             input, target = input.to(device), target.to(device)
             output = net(input)
             loss, acc = criterion(output, target)
-            loss.backward()
+            torch.mean(loss).backward()
             optim.step()
             stats.accumulate(len(target), loss, acc)
-        print(f'Epoch {e}/{epochs}: acc={100*stats.getAcc():.2f}%, loss={stats.getLoss():.3f}')
+            perClass.accumulate(scrambles, loss, acc)
+
+        print()
+        print(f'Epoch {e}/{epochs}:')
+        print(f'acc={100*stats.getAcc():.2f}%, loss={stats.getLoss():.3f}')
+        print(f'acc= {perClass.accStr()}')
 
 
 if __name__ == '__main__':
