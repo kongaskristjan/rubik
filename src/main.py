@@ -9,22 +9,29 @@ device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 maxScrambles = 20
 modelDir = '../models'
 
-def main(epochs=10, load_path=''):
+def main(start_epoch=0, end_epoch=1000, mode='train'):
+    assert mode in ('train', 'validate', 'test')
     ds = data.RubikDataset(60000, maxScrambles)
     dl = DataLoader(ds, batch_size=64, num_workers=16)
 
-    if load_path == '':
+    if start_epoch == 0:
         net = models.DeepCube().to(device)
-        train(net, dl, epochs)
     else:
-        net = torch.load(load_path).to(device)
-        testMulti(net, 20)
+        net = torch.load(getModelPath(start_epoch)).to(device)
 
-def train(net, dl, epochs):
+    if mode == 'train':
+        train(net, dl, start_epoch, end_epoch)
+    if mode == 'validate':
+        validate(net, maxScrambles=20)
+    if mode == 'test':
+        for i in range(1000):
+            testSolve(net, scrambles=1000)
+
+def train(net, dl, start_epoch, end_epoch):
     optim = torch.optim.Adam(net.parameters())
     criterion = utils.CubeLoss('none').to(device)
 
-    for e in range(1, epochs + 1):
+    for e in range(start_epoch + 1, end_epoch + 1):
         stats = utils.Stats()
         perClass = utils.PerClassStats(maxScrambles)
 
@@ -41,28 +48,32 @@ def train(net, dl, epochs):
         print()
         print()
         print()
-        print(f'Epoch {e}/{epochs}:')
+        print(f'Epoch {e}/{end_epoch}:')
         print(f'acc={100*stats.getAcc():.2f}%, loss={stats.getLoss():.3f}')
         print(f'acc= {perClass.accStr()}')
         print()
-        testMulti(net, 20)
+        validate(net, 20)
         if e % 50 == 0:
             os.makedirs(modelDir, exist_ok=True)
-            filePath = f'{modelDir}/net.{e:04}.pt'
+            filePath = getModelPath(e)
             print(f'Saving to {filePath}')
             torch.save(net, filePath)
 
 
-def testMulti(net, maxScrambles):
+def validate(net, maxScrambles):
     for scrambles in range(1, maxScrambles + 1):
         testSolve(net, scrambles=scrambles)
 
 
-def testSolve(net, scrambles=100):
+def getModelPath(epoch):
+    return f'{modelDir}/net.{epoch:04}.pt'
+
+
+def testSolve(net, scrambles):
     env = data.RubikEnv(scrambles=scrambles)
 
     pastObsActions = {}
-    for i in range(101):
+    for i in range(501):
         obs, done, hsh = env.getState()
         if done:
             print(f'Test with {scrambles} scrambles solved in {i} steps')
