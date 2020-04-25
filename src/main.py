@@ -87,6 +87,8 @@ def testSolve(net, scrambles):
             action = torch.argmax(logits).item()
             pastActions = pastObsActions.setdefault(hsh, [])
             if action in pastActions: # If observation/action pair already done, avoid redoing
+                if logits[action] < -999:
+                    break
                 logits[action] = -1000
             else: # Execute action
                 pastActions.append(action)
