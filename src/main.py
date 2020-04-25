@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 
-import torch
+import torch, os
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 import data, models, utils
-from torchvision.transforms import Compose
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 maxScrambles = 20
+modelDir = '../models'
 
 def main():
     ds = data.RubikDataset(60000, maxScrambles)
@@ -42,25 +42,45 @@ def train(net, dl):
         print(f'acc={100*stats.getAcc():.2f}%, loss={stats.getLoss():.3f}')
         print(f'acc= {perClass.accStr()}')
         print()
-        for scrambles in range(1, 11):
-            testSolve(net, scrambles=scrambles)
+        testMulti(net, 20)
+        if e % 50 == 0:
+            os.makedirs(modelDir, exist_ok=True)
+            filePath = f'{modelDir}/net.{e:04}.pt'
+            print(f'Saving to {filePath}')
+            torch.save(net, filePath)
+
+
+def testMulti(net, maxScrambles):
+    for scrambles in range(1, maxScrambles + 1):
+        testSolve(net, scrambles=scrambles)
 
 
 def testSolve(net, scrambles=100):
     env = data.RubikEnv(scrambles=scrambles)
+
+    pastObsActions = {}
     for i in range(101):
-        obs, done = env.getState()
+        obs, done, hsh = env.getState()
         if done:
             print(f'Test with {scrambles} scrambles solved in {i} steps')
             return
 
         obs = obs.view(1, *obs.shape).to(device) # batch and GPU
-        action = net(obs)
-        action = action.to('cpu').view(*action.shape[1:]) # CPU and debatch
+        logits = net(obs)
+        logits = logits.to('cpu').view(-1) # CPU and debatch
 
-        action = torch.argmax(action.view(-1))
-        action = torch.tensor([action.item() // 3, action.item() % 3], dtype=torch.long)
-        env.step(action)
+        while True: # Compute action
+            action = torch.argmax(logits).item()
+            pastActions = pastObsActions.setdefault(hsh, [])
+            if action in pastActions: # If observation/action pair already done, avoid redoing
+                logits[action] = -1000
+            else: # Execute action
+                pastActions.append(action)
+                envAction = torch.tensor([action // 3, action % 3], dtype=torch.long)
+                env.step(envAction)
+                break
+
+
     print(f'did not solve {scrambles} scrambles')
 
 

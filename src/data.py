@@ -25,11 +25,12 @@ class RubikEnv:
 
     def getState(self):
         obs = str(self.cube)
+        hsh = hash(obs)
         obs = _cubeToIndices(obs)
         obs = _indicesToOneHot(obs)
 
         done = self.cube.is_solved()
-        return obs, done
+        return obs, done, hsh
 
 
 class RubikDataset(Dataset):
