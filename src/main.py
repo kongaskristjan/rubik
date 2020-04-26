@@ -72,9 +72,10 @@ def getModelPath(epoch):
 def testSolve(net, scrambles):
     env = data.RubikEnv(scrambles=scrambles)
 
-    pastObsActions = {}
+    pastStates = set()
     for i in range(501):
         obs, done, hsh = env.getState()
+        pastStates.add(hsh)
         if done:
             print(f'Test with {scrambles} scrambles solved in {i} steps')
             return
@@ -85,15 +86,17 @@ def testSolve(net, scrambles):
 
         while True: # Compute action
             action = torch.argmax(logits).item()
-            pastActions = pastObsActions.setdefault(hsh, [])
-            if action in pastActions: # If observation/action pair already done, avoid redoing
+            envAction = torch.tensor([action // 3, action % 3], dtype=torch.long)
+            env.step(envAction)
+            hsh = env.getState()[2]
+            if hsh in pastStates:
                 if logits[action] < -999:
                     break
                 logits[action] = -1000
-            else: # Execute action
-                pastActions.append(action)
-                envAction = torch.tensor([action // 3, action % 3], dtype=torch.long)
+
+                envAction[1] = {0: 2, 1: 1, 2: 0}[envAction[1].item()] # invert action
                 env.step(envAction)
+            else:
                 break
 
 
