@@ -10,6 +10,7 @@ maxScrambles = 16
 modelDir = '../models'
 
 def main(start_epoch=0, end_epoch=1000, mode='train'):
+    print(f'Using device {device}')
     assert mode in ('train', 'validate', 'test')
     ds = data.RubikDataset(60000, maxScrambles)
     dl = DataLoader(ds, batch_size=64, num_workers=16)
@@ -17,7 +18,7 @@ def main(start_epoch=0, end_epoch=1000, mode='train'):
     if start_epoch == 0:
         net = models.DeepCube(mul=2).to(device)
     else:
-        net = torch.load(getModelPath(start_epoch)).to(device)
+        net = torch.load(getModelPath(start_epoch), map_location=device)
 
     if mode == 'train':
         train(net, dl, start_epoch, end_epoch)
