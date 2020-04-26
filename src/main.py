@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 import data, models, utils
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-maxScrambles = 20
+maxScrambles = 16
 modelDir = '../models'
 
 def main(start_epoch=0, end_epoch=1000, mode='train'):
@@ -15,7 +15,7 @@ def main(start_epoch=0, end_epoch=1000, mode='train'):
     dl = DataLoader(ds, batch_size=64, num_workers=16)
 
     if start_epoch == 0:
-        net = models.DeepCube().to(device)
+        net = models.DeepCube(mul=2).to(device)
     else:
         net = torch.load(getModelPath(start_epoch)).to(device)
 

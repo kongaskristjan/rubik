@@ -5,12 +5,12 @@ from torch.nn import functional as F
 
 # Closely mimics DeepCube from SOLVING THE RUBIK’S CUBE WITH APPROXIMATE POLICY ITERATION
 class DeepCube(nn.Module):
-    def __init__(self):
+    def __init__(self, mul=1):
         super(DeepCube, self).__init__()
-        self.linear1 = nn.Linear(6 * 6 * 3 * 3, 4096)
-        self.linear2 = nn.Linear(4096, 2048)
-        self.linear3 = nn.Linear(2048, 512)
-        self.linear4 = nn.Linear(512, 6 * 3)
+        self.linear1 = nn.Linear(6 * 6 * 3 * 3, round(mul * 4096))
+        self.linear2 = nn.Linear(round(mul * 4096), round(mul * 2048))
+        self.linear3 = nn.Linear(round(mul * 2048), round(mul * 512))
+        self.linear4 = nn.Linear(round(mul * 512), 6 * 3)
 
     def forward(self, x):
         x = x.reshape(x.shape[0], -1)
