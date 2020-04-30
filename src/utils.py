@@ -12,7 +12,7 @@ class CubeLoss(nn.Module):
 
     def forward(self, output, target):
         output = output.view(output.shape[0], -1) # NSC -> N(SC)
-        target = 3 * target[:, 0] + target[:, 1]
+        target = 2 * target[:, 0] + target[:, 1]
 
         loss = self.criterion(output, target)
 

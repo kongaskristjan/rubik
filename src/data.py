@@ -9,16 +9,7 @@ invOps = {'L': 'R', 'R': 'L', 'U': 'D', 'D': 'U', 'F': 'B', 'B': 'F'}
 
 class RubikEnv:
     def __init__(self, scrambles=1000):
-        self.cube = Cube()
-        seq = ''
-        for _ in range(scrambles):
-            op = random.choice(ops)
-            amount = random.choice(['', '2', 'i']) # normal op, 2x op, inverse op
-            if amount == '2':
-                seq += f' {op} {op}'
-            else:
-                seq += f' {op}{amount}'
-        self.cube.sequence(seq)
+        self.cube, _ = _getCube(scrambles)
 
     def step(self, action):
         op = _indicesToOp(action)
@@ -41,7 +32,8 @@ class RubikDataset(Dataset):
         self.maxIters = maxIters
 
     def __getitem__(self, _):
-        x, y, scrambles = self._getCube()
+        scrambles = random.randint(1, self.maxIters)
+        x, y = _getCube(scrambles)
         x = _cubeToIndices(x)
         x = _indicesToOneHot(x)
         y = _opToIndices(y)
@@ -50,33 +42,29 @@ class RubikDataset(Dataset):
     def __len__(self):
         return self.size
 
-    def _getCube(self):
-        cube = Cube()
-        seq = ''
-        scrambles = random.randint(1, self.maxIters)
-        lastOps = []
-        for _ in range(scrambles):
-            while True:
-                op = random.choice(ops)
-                if op in lastOps: continue
-                elif invOps[op] in lastOps: lastOps.append(op)
-                else: lastOps = [op]
-                break
-            amount = random.choice(['', '2', 'i']) # normal op, 2x op, inverse op
-            if amount == '2':
-                seq += f' {op} {op}'
-            else:
-                seq += f' {op}{amount}'
-        cube.sequence(seq)
-        reverseAmount = {'': 'i', '2': '2', 'i': ''}[amount]
-        return str(cube), f'{op}{reverseAmount}', scrambles
+
+def _getCube(scrambles):
+    cube = Cube()
+    seq = ''
+    lastOps = []
+    for _ in range(scrambles):
+        while True:
+            op = random.choice(ops)
+            if op in lastOps: continue
+            elif invOps[op] in lastOps: lastOps.append(op)
+            else: lastOps = [op]
+            break
+        amount = random.choice(['', 'i']) # normal op, inverse op
+        seq += f' {op}{amount}'
+    cube.sequence(seq)
+    reverseAmount = {'': 'i', 'i': ''}[amount]
+    return cube, f'{op}{reverseAmount}'
 
 
 def _opToIndices(op):
     opIdx = ops.index(op[0])
     if len(op) == 1: amountIdx = 0
-    if len(op) == 2 and op[1] == '2': amountIdx = 1
-    if len(op) == 2 and op[1] == 'i': amountIdx = 2
+    if len(op) == 2 and op[1] == 'i': amountIdx = 1
     y = torch.tensor([opIdx, amountIdx], dtype=torch.long)
     return y
 
@@ -86,14 +74,13 @@ def _indicesToOp(indices):
     op, amount = op.item(), amount.item()
     op = ops[op]
 
-    assert amount in (0, 1, 2)
+    assert amount in (0, 1)
     if amount == 0: return op
-    if amount == 1: return f'{op} {op}'
-    if amount == 2: return f'{op}i'
+    if amount == 1: return f'{op}i'
 
 
 def _cubeToIndices(cube):
-    cube = cube.split('\n')
+    cube = str(cube).split('\n')
     indices = torch.zeros((6, 3, 3), dtype=torch.long) # SHW
 
     # x coordinates have stride 4, y coordinates have 3. See Cube.__str__() method for details

@@ -6,12 +6,14 @@ from torch.utils.data import Dataset, DataLoader
 import data, models, utils
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-maxScrambles = 16
+maxScrambles = 20
 modelDir = '../models'
 
-def main(start_epoch=0, end_epoch=1000, mode='train'):
+def main(start_epoch=0, end_epoch=1000, save_frequency=50, mode='train'):
     print(f'Using device {device}')
     assert mode in ('train', 'test')
+    assert save_frequency > 0
+
     ds = data.RubikDataset(60000, maxScrambles)
     dl = DataLoader(ds, batch_size=64, num_workers=16)
 
@@ -21,14 +23,14 @@ def main(start_epoch=0, end_epoch=1000, mode='train'):
         net = torch.load(getModelPath(start_epoch), map_location=device)
 
     if mode == 'train':
-        train(net, dl, start_epoch, end_epoch)
-    if mode == 'test':
+        train(net, dl, start_epoch, end_epoch, save_frequency)
+    if mode in ('train', 'test'):
         sum, numSolves = 0, 50
         for i in range(numSolves):
-            sum += testSolve(net, scrambles=1000)
+            sum += testSolve(net, scrambles=random.randint(1000, 1099))
         print(f'Average solution steps: {sum / numSolves}')
 
-def train(net, dl, start_epoch, end_epoch):
+def train(net, dl, start_epoch, end_epoch, save_frequency):
     optim = torch.optim.Adam(net.parameters())
     criterion = utils.CubeLoss('none').to(device)
 
@@ -46,14 +48,11 @@ def train(net, dl, start_epoch, end_epoch):
             stats.accumulate(len(target), loss, acc)
             perClass.accumulate(scrambles, loss, acc)
 
-        print()
-        print()
-        print()
         print(f'Epoch {e}/{end_epoch}:')
         print(f'acc={100*stats.getAcc():.2f}%, loss={stats.getLoss():.3f}')
         print(f'acc= {perClass.accStr()}')
         print()
-        if e % 50 == 0:
+        if e % save_frequency == 0:
             os.makedirs(modelDir, exist_ok=True)
             filePath = getModelPath(e)
             print(f'Saving to {filePath}')
@@ -83,7 +82,7 @@ def testSolve(net, scrambles):
 
             while True: # Compute action
                 action = torch.argmax(logits).item()
-                envAction = torch.tensor([action // 3, action % 3], dtype=torch.long)
+                envAction = torch.tensor([action // 2, action % 2], dtype=torch.long)
                 env.step(envAction)
                 hsh = env.getState()[2]
                 if hsh in pastStates:
@@ -91,14 +90,14 @@ def testSolve(net, scrambles):
                         break
                     logits[action] = -1000
 
-                    envAction[1] = {0: 2, 1: 1, 2: 0}[envAction[1].item()] # invert action
+                    envAction[1] = {0: 1, 1: 0}[envAction[1].item()] # invert action
                     env.step(envAction)
                 else:
                     break
             numSteps += 1
 
         for j in range(20): # Randomize
-            action = torch.LongTensor([random.randint(0, 5), random.randint(0, 2)])
+            action = torch.LongTensor([random.randint(0, 5), random.randint(0, 1)])
             env.step(action)
             numSteps += 1
 
