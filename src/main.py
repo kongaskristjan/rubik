@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import torch, os, fire
+import torch, os, fire, random
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 import data, models, utils
@@ -11,7 +11,7 @@ modelDir = '../models'
 
 def main(start_epoch=0, end_epoch=1000, mode='train'):
     print(f'Using device {device}')
-    assert mode in ('train', 'validate', 'test')
+    assert mode in ('train', 'test')
     ds = data.RubikDataset(60000, maxScrambles)
     dl = DataLoader(ds, batch_size=64, num_workers=16)
 
@@ -22,11 +22,11 @@ def main(start_epoch=0, end_epoch=1000, mode='train'):
 
     if mode == 'train':
         train(net, dl, start_epoch, end_epoch)
-    if mode == 'validate':
-        validate(net, maxScrambles=20)
     if mode == 'test':
-        for i in range(1000):
-            testSolve(net, scrambles=1000)
+        sum, numSolves = 0, 50
+        for i in range(numSolves):
+            sum += testSolve(net, scrambles=1000)
+        print(f'Average solution steps: {sum / numSolves}')
 
 def train(net, dl, start_epoch, end_epoch):
     optim = torch.optim.Adam(net.parameters())
@@ -53,17 +53,11 @@ def train(net, dl, start_epoch, end_epoch):
         print(f'acc={100*stats.getAcc():.2f}%, loss={stats.getLoss():.3f}')
         print(f'acc= {perClass.accStr()}')
         print()
-        validate(net, 20)
         if e % 50 == 0:
             os.makedirs(modelDir, exist_ok=True)
             filePath = getModelPath(e)
             print(f'Saving to {filePath}')
             torch.save(net, filePath)
-
-
-def validate(net, maxScrambles):
-    for scrambles in range(1, maxScrambles + 1):
-        testSolve(net, scrambles=scrambles)
 
 
 def getModelPath(epoch):
@@ -73,35 +67,43 @@ def getModelPath(epoch):
 def testSolve(net, scrambles):
     env = data.RubikEnv(scrambles=scrambles)
 
-    pastStates = set()
-    for i in range(501):
-        obs, done, hsh = env.getState()
-        pastStates.add(hsh)
-        if done:
-            print(f'Test with {scrambles} scrambles solved in {i} steps')
-            return
+    numSteps = 0
+    for i in range(500): # Randomize if solving fails
+        pastStates = set()
+        for i in range(100): # Try solving for a short amount of time
+            obs, done, hsh = env.getState()
+            pastStates.add(hsh)
+            if done:
+                print(f'Test with {scrambles} scrambles solved in {numSteps} steps')
+                return numSteps
 
-        obs = obs.view(1, *obs.shape).to(device) # batch and GPU
-        logits = net(obs)
-        logits = logits.to('cpu').view(-1) # CPU and debatch
+            obs = obs.view(1, *obs.shape).to(device) # batch and GPU
+            logits = net(obs)
+            logits = logits.to('cpu').view(-1) # CPU and debatch
 
-        while True: # Compute action
-            action = torch.argmax(logits).item()
-            envAction = torch.tensor([action // 3, action % 3], dtype=torch.long)
-            env.step(envAction)
-            hsh = env.getState()[2]
-            if hsh in pastStates:
-                if logits[action] < -999:
-                    break
-                logits[action] = -1000
-
-                envAction[1] = {0: 2, 1: 1, 2: 0}[envAction[1].item()] # invert action
+            while True: # Compute action
+                action = torch.argmax(logits).item()
+                envAction = torch.tensor([action // 3, action % 3], dtype=torch.long)
                 env.step(envAction)
-            else:
-                break
+                hsh = env.getState()[2]
+                if hsh in pastStates:
+                    if logits[action] < -999:
+                        break
+                    logits[action] = -1000
 
+                    envAction[1] = {0: 2, 1: 1, 2: 0}[envAction[1].item()] # invert action
+                    env.step(envAction)
+                else:
+                    break
+            numSteps += 1
+
+        for j in range(20): # Randomize
+            action = torch.LongTensor([random.randint(0, 5), random.randint(0, 2)])
+            env.step(action)
+            numSteps += 1
 
     print(f'did not solve {scrambles} scrambles')
+    return scrambles
 
 
 if __name__ == '__main__':
