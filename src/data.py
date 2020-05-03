@@ -3,17 +3,28 @@ import random
 from simulator.cube import Cube
 import torch
 from torch.utils.data import Dataset, DataLoader
+import copy
 
 ops = 'LRUDFB'
 invOps = {'L': 'R', 'R': 'L', 'U': 'D', 'D': 'U', 'F': 'B', 'B': 'F'}
 
 class RubikEnv:
     def __init__(self, scrambles=1000):
-        self.cube, _ = _getCube(scrambles)
+        self.cube = _getCube(scrambles)
+
+    def generateCombinations(self):
+        keys, cubes = [], []
+        for op in ops:
+            for amount in ('', 'i'):
+                mutation = copy.deepcopy(self)
+                step = f'{op}{amount}'
+                keys.append(step)
+                mutation.step(step)
+                cubes.append(mutation)
+        return keys, cubes
 
     def step(self, action):
-        op = _indicesToOp(action)
-        self.cube.sequence(op)
+        self.cube.sequence(action)
 
     def getState(self):
         obs = str(self.cube)
@@ -33,11 +44,10 @@ class RubikDataset(Dataset):
 
     def __getitem__(self, _):
         scrambles = random.randint(1, self.maxIters)
-        x, y = _getCube(scrambles)
+        x = _getCube(scrambles)
         x = _cubeToIndices(x)
         x = _indicesToOneHot(x)
-        y = _opToIndices(y)
-        return x, y, scrambles
+        return x, scrambles
 
     def __len__(self):
         return self.size
@@ -57,8 +67,7 @@ def _getCube(scrambles):
         amount = random.choice(['', 'i']) # normal op, inverse op
         seq += f' {op}{amount}'
     cube.sequence(seq)
-    reverseAmount = {'': 'i', 'i': ''}[amount]
-    return cube, f'{op}{reverseAmount}'
+    return cube
 
 
 def _opToIndices(op):

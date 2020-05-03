@@ -27,30 +27,22 @@ class Stats:
     def __init__(self):
         self.n = 0
         self.loss = 0
-        self.acc = 0
 
-    def accumulate(self, _n, _loss, _acc):
+    def accumulate(self, _n, _loss):
         self.n += _n
         self.loss += torch.sum(_loss).item()
-        self.acc += torch.sum(_acc).item()
 
     def getLoss(self):
         return self.loss / max(1, self.n)
-
-    def getAcc(self):
-        return self.acc / max(1, self.n)
 
 
 class PerClassStats:
     def __init__(self, maxScrambles):
         self.stats = [Stats() for i in range(maxScrambles + 1)]
 
-    def accumulate(self, scrambles, loss, acc):
-        for scr, l, a in zip(scrambles, loss, acc):
-            self.stats[scr].accumulate(1, l, a)
+    def accumulate(self, scrambles, loss):
+        for scr, l in zip(scrambles, loss):
+            self.stats[scr].accumulate(1, l)
 
-    def lossStr(self):
-        return ''.join([f'{i}: {s.getLoss():.3f}  ' for i, s in enumerate(self.stats[1:], start=1)])
-
-    def accStr(self):
-        return ''.join([f'{i}: {100*s.getAcc():.2f}%  ' for i, s in enumerate(self.stats[1:], start=1)])
+    def distStr(self):
+        return '  '.join([f'{i}: {s.getLoss()**0.5:.3f}' for i, s in enumerate(self.stats[1:], start=1)])
