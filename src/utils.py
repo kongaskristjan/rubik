@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-defaultColors = 'OYWGBR'
+defaultColors = 'YGORWB'
 ops = 'LRUDFB'
 invOps = {'L': 'R', 'R': 'L', 'U': 'D', 'D': 'U', 'F': 'B', 'B': 'F'}
 
