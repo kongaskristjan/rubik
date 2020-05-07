@@ -13,9 +13,8 @@ class RubikEnv:
         self.cube.sequence(op)
 
     def getState(self):
-        obs = str(self.cube)
+        obs = self.cube.indices
         hsh = hash(obs)
-        obs = utils.strToIndices(str(obs))
         obs = utils.indicesToOneHot(obs)
 
         done = self.cube.is_solved()
@@ -31,8 +30,7 @@ class RubikDataset(Dataset):
     def __getitem__(self, _):
         scrambles = random.randint(1, self.maxIters)
         x, y = _getCube(scrambles)
-        x = utils.strToIndices(str(x))
-        x = utils.indicesToOneHot(x)
+        x = utils.indicesToOneHot(x.indices)
         y = utils.opToIndices(y)
         return x, y, scrambles
 
