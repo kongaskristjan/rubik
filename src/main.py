@@ -88,7 +88,7 @@ def testSolve(net, scrambles):
 
         for j in range(20): # Randomize
             indices = torch.LongTensor([random.randint(0, 5), random.randint(0, 1)])
-            action = data._indicesToOp(indices)
+            action = utils.indicesToOp(indices)
             cube.step(action)
             numSteps += 1
 
