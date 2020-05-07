@@ -1,12 +1,9 @@
 
-import random
-from simulator.cube import Cube
+import random, utils
+from simulator.fastCube import Cube
 import torch
 from torch.utils.data import Dataset, DataLoader
 import copy
-
-ops = 'LRUDFB'
-invOps = {'L': 'R', 'R': 'L', 'U': 'D', 'D': 'U', 'F': 'B', 'B': 'F'}
 
 class RubikEnv:
     def __init__(self, scrambles=1000):
@@ -14,7 +11,7 @@ class RubikEnv:
 
     def generateCombinations(self):
         keys, cubes = [], []
-        for op in ops:
+        for op in utils.ops:
             for amount in ('', 'i'):
                 mutation = copy.deepcopy(self)
                 step = f'{op}{amount}'
@@ -29,8 +26,8 @@ class RubikEnv:
     def getState(self):
         obs = str(self.cube)
         hsh = hash(obs)
-        obs = _cubeToIndices(obs)
-        obs = _indicesToOneHot(obs)
+        obs = utils.strToIndices(str(obs))
+        obs = utils.indicesToOneHot(obs)
 
         done = self.cube.is_solved()
         return obs, done, hsh
@@ -45,8 +42,8 @@ class RubikDataset(Dataset):
     def __getitem__(self, _):
         scrambles = random.randint(1, self.maxIters)
         x = _getCube(scrambles)
-        x = _cubeToIndices(x)
-        x = _indicesToOneHot(x)
+        x = utils.strToIndices(str(x))
+        x = utils.indicesToOneHot(x)
         return x, scrambles
 
     def __len__(self):
@@ -59,59 +56,12 @@ def _getCube(scrambles):
     lastOps = []
     for _ in range(scrambles):
         while True:
-            op = random.choice(ops)
+            op = random.choice(utils.ops)
             if op in lastOps: continue
-            elif invOps[op] in lastOps: lastOps.append(op)
+            elif utils.invOps[op] in lastOps: lastOps.append(op)
             else: lastOps = [op]
             break
         amount = random.choice(['', 'i']) # normal op, inverse op
         seq += f' {op}{amount}'
     cube.sequence(seq)
     return cube
-
-
-def _opToIndices(op):
-    opIdx = ops.index(op[0])
-    if len(op) == 1: amountIdx = 0
-    if len(op) == 2 and op[1] == 'i': amountIdx = 1
-    y = torch.tensor([opIdx, amountIdx], dtype=torch.long)
-    return y
-
-
-def _indicesToOp(indices):
-    op, amount = indices
-    op, amount = op.item(), amount.item()
-    op = ops[op]
-
-    assert amount in (0, 1)
-    if amount == 0: return op
-    if amount == 1: return f'{op}i'
-
-
-def _cubeToIndices(cube):
-    cube = str(cube).split('\n')
-    indices = torch.zeros((6, 3, 3), dtype=torch.long) # SHW
-
-    # x coordinates have stride 4, y coordinates have 3. See Cube.__str__() method for details
-    _setIndices(indices[0], cube, 0, 3) # L
-    _setIndices(indices[1], cube, 8, 3) # R
-    _setIndices(indices[2], cube, 4, 0) # U
-    _setIndices(indices[3], cube, 4, 6) # D
-    _setIndices(indices[4], cube, 4, 3) # F
-    _setIndices(indices[5], cube, 12, 3) # B
-    return indices
-
-
-def _setIndices(indices, cube, x0, y0):
-    colors = "OYWGBR"
-    c2Idx = {colors[i]: i for i in range(len(colors))}
-    for y in range(3):
-        for x in range(3):
-            indices[y][x] = c2Idx[cube[y0 + y][x0 + x]]
-
-
-def _indicesToOneHot(indices):
-    eye = torch.eye(6, dtype=torch.float32)
-    oneHot = eye[indices] # SHWC
-    oneHot = oneHot.permute(0, 3, 1, 2) # SCHW
-    return oneHot
