@@ -46,10 +46,9 @@ def train(net, dl, start_epoch, end_epoch, save_frequency):
             with amp.autocast():
                 output = net(input)
                 loss, acc = criterion(output, target)
-                loss = torch.mean(loss)
-            loss.backward()
+                meanLoss = torch.mean(loss)
+            meanLoss.backward()
             optim.step()
-            loss = loss.float()
             stats.accumulate(len(target), loss, acc)
             perClass.accumulate(scrambles, loss, acc)
 
