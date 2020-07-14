@@ -49,6 +49,7 @@ def train(net, dl, start_epoch, end_epoch, save_frequency):
                 loss = torch.mean(loss)
             loss.backward()
             optim.step()
+            loss = loss.float()
             stats.accumulate(len(target), loss, acc)
             perClass.accumulate(scrambles, loss, acc)
 
