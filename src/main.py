@@ -2,6 +2,7 @@
 
 import torch, os, fire, random
 from torch import nn
+from torch.cuda import amp
 from torch.utils.data import Dataset, DataLoader
 import data, models, utils
 
@@ -41,9 +42,12 @@ def train(net, dl, start_epoch, end_epoch, save_frequency):
         for input, target, scrambles in dl:
             optim.zero_grad()
             input, target = input.to(device), target.to(device)
-            output = net(input)
-            loss, acc = criterion(output, target)
-            torch.mean(loss).backward()
+
+            with amp.autocast():
+                output = net(input)
+                loss, acc = criterion(output, target)
+                loss = torch.mean(loss)
+            loss.backward()
             optim.step()
             stats.accumulate(len(target), loss, acc)
             perClass.accumulate(scrambles, loss, acc)
