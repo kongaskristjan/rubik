@@ -18,7 +18,7 @@ def main(start_epoch=0, end_epoch=1000, save_frequency=50, mode='train'):
     dl = DataLoader(ds, batch_size=64, num_workers=16)
 
     if start_epoch == 0:
-        net = models.DeepCube(mul=2).to(device)
+        net = models.getModel(mul=2).to(device)
     else:
         net = torch.load(getModelPath(start_epoch), map_location=device)
 
